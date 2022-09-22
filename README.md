@@ -51,10 +51,10 @@ recursively convert the current directory to mp3 320k
 
 recursively convert current directory to opus 160k, while removing any COMMENT or DESCRIPTION tags
 
-`flacconv -b 160 -r 'COMMENT|DESCRIPTION`
+`flacconv -b 160 -r "COMMENT|DESCRIPTION"`
 
 recursively convert current directory to mp3 v0, removing all pictures, and keeping only TITLE, ARTIST, ALBUM, TRACKNUMBER
 
-`flacconv -v 0 -p -k "TITLE|ARTIST|ALBUM|TRACKNUMBER"`
+`flacconv -3 -v 0 -p -k "TITLE|ARTIST|ALBUM|TRACKNUMBER"`
 
 [^1]: tested on dash
