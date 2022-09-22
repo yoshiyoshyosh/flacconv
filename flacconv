@@ -1,0 +1,218 @@
+#!/bin/sh
+set -euf
+set -x
+TAB="$(printf '\t')"
+NL='
+'
+BN="${0##*/}"
+
+errecho() {
+	>&2 echo "$@"
+}
+
+fail() {
+	errecho "error: $BN: $*"
+	exit 1
+}
+
+warn() {
+	errecho "warning: $BN: $*"
+	if [ -z "$IGNOREWARNINGS" ]; then
+		errecho 'you can ignore stopping for warnings in the future with -i'
+		errecho 'press enter to continue, or C-v to quit'
+		read -r _warning
+	fi
+}
+
+_tempdir() {
+	set +u
+	[ "$TMPDIR" ] || \
+	{ [ "$TEMP" ] && TMPDIR="$TEMP"; } || \
+	{ [ "$TMP" ] && TMPDIR="$TMP"; } || \
+	{ [ -d "/tmp" ] && TMPDIR="/tmp"; } || \
+	{ [ -d "/var/tmp" ] && TMPDIR="/var/tmp"; } || \
+	{ [ -d "/usr/tmp" ] && TMPDIR="/usr/tmp"; } || \
+	TMPDIR="$PWD"
+	set -u
+}
+
+metaflac() { command metaflac --no-utf8-convert "$@"; } # don't wanna fuck up any tags from locale shit
+
+# some code reused from https://gist.github.com/berturion/5377d6653ef93049f4ff54cff2003e11#file-flac2opus-sh
+process_file() {
+	infile="$1"
+	bname="${infile##*/}"
+	tags="$(metaflac --export-tags-to=- "$infile")"
+
+	# check if flac has a picture, if not, set RMPIC
+	metaflac --export-picture-to=- "$infile" 1>/dev/null 2>&1 || RMPIC=1
+
+	# first remove any potential ID3 tags
+	head_bytes="$(dd if="$infile" of=/dev/stdout bs=1 count=3 2>/dev/null)"
+	if [ "$head_bytes" = "ID3" ] && [ -z "${NO_ID3:-}" ]; then
+		errecho "invalid id3 tags found in $infile, fixing automatically"
+		id3v2 -D "$infile"
+		metaflac --remove-all-tags --import-tags-from=- "$infile" <<-EOF
+			$tags
+		EOF
+	fi
+
+	# now test if keepkeys or whatever was used, set exported tags
+	if [ "$KEEPKEYS" ]; then
+		tags="$(printf '%s' "$tags" | grep -E "^$KEEPKEYS")"
+	elif [ "$REMOVEKEYS" ]; then
+		[ "$REMOVEKEYS" = "ALL" ] && REMOVEKEYS=''
+		tags="$(printf '%s' "$tags" | grep -v -E "^$REMOVEKEYS")"
+	fi
+
+	# time to encode
+	IFS="$TAB$NL"
+	if [ "$TYPE" = "opus" ]; then
+		VLVL=
+		opustags=""
+		while read -r tag; do # build opus comment chain, can't "import" tags like with flac"
+			opustags="${opustags}${TAB}--comment${TAB}${tag}"
+		done <<-EOF
+			$tags
+		EOF
+		if [ "$RMPIC" ]; then
+			opusenc --discard-comments $opustags --bitrate "${BITRATE}k" "$infile" "${infile%.*}.opus"
+		else
+			metaflac --export-picture-to=- "$infile" | opusenc --discard-comments $opustags --bitrate "${BITRATE}k" --picture /dev/stdin "$infile" "${infile%.*}.opus"
+		fi
+		ret="$?"
+	else
+		album="$(printf "%s" "$tags" | sed -n 's/^ALBUM=//p')"
+		artist="$(printf "%s" "$tags" | sed -n 's/^ARTIST=//p')"
+		albumartist="$(printf "%s" "$tags" | sed -n 's/^ALBUMARTIST=//p')"
+		title="$(printf "%s" "$tags" | sed -n 's/^TITLE=//p')"
+		year="$(printf "%s" "$tags" | sed -n 's/^DATE=//p')"
+		genre="$(printf "%s" "$tags" | sed -n 's/^GENRE=//p')"
+		tracknumber="$(printf "%s" "$tags" | sed -n 's/^TRACKNUMBER=//p')"
+		comment="$(printf "%s" "$tags" | sed -n 's/^COMMENT=//p')"
+
+		if [ -z "$RMPIC" ]; then
+			pic="$TMPDIR/${bname%.*}_IMG"
+			metaflac --export-picture-to="$pic" "$infile"
+		fi
+		[ "$VLVL" ] || cbr="-b${TAB}$BITRATE${TAB}--cbr"
+		flac --decode --stdout "$infile" 2>/dev/null | lame -q 0 ${cbr:--V${TAB}${VLVL}} --add-id3v2 --tt "$title" --ta "$artist" --tl "$album" --ty "$year" --tn "$tracknumber" --tg "$genre" --tc "$comment" --tv "TPE2=$albumartist" ${pic:+--ti${TAB}"${pic}"} - "${infile%.*}.mp3" 1>/dev/null 2>&1
+		ret="$?"
+		[ "${pic:-}" ] && rm -f "$pic"
+	fi
+	{ [ "$ret" -eq 0 ] && echo "$infile successfully converted to $TYPE with bitrate/quality ${VLVL:-${BITRATE}k}" ; } || { echo "an error occured while encoding $infile, not deleting" && DELETE= ; }
+
+	[ "$DELETE" -eq 1 ] && rm -f "$infile" || true
+}
+
+usage() {
+	errecho \
+"usage: $BN [-hdp3] [-b BITRATE] [-v LEVEL] [-k KEYS] [-r KEYS] [-j THREADS] [--] [DIRECTORY...]
+$BN recursively converts directories of flac files to opus/mp3
+DIRECTORY can be specified multiple times. if omitted, the current directory is used
+by default, this script outputs opus and bitrate 128k
+if encoding to mp3, the only metadata that will be kept is the following:
+  TITLE, ARTIST, ALBUM, ALBUMARTIST, DATE, GENRE, TRACKNUMBER, COMMENT, and the cover picture
+
+ -h           show script help
+ -i           ignore script-stopping warnings
+ -d           delete original flac files after transcoding
+ -3           switch output filetype to mp3
+ -b <BITRATE> output bitrate in kbits (default 128)
+              this value is variable for opus & CBR for mp3
+ -v <LEVEL>   mp3 only: use specified mp3 variable quality (0-9). integer only
+              OVERRIDES -b
+ -k <KEYS>    keep specified flac metadata KEYS in output file
+              keys can be checked with metaflac --export-tags-to=- FILE
+              option argument is a PIPE-separated list of UPPERCASE keys to keep
+              (i.e. -m 'ARTIST|TITLE|ALBUMARTIST|ALBUM|DATE')
+              if both -k and -r are not present, all keys are kept.
+ -r <KEYS>    remove specified flac metadata KEYS in output file
+              cannot be used with -k
+              option argument is of the same format as -k
+              if set to 'ALL', all keys are removed
+ -p           remove embedded picture in output files
+ -j <THREADS> use the specified amount of threads for parallel processing
+              if omitted, CPU core count will be used"
+}
+
+set +u
+DELETE=0
+TYPE=opus
+BITRATE=128
+VLVL=
+RMPIC=
+KEEPKEYS=
+REMOVEKEYS=
+IGNOREWARNINGS=
+THREADS="$(getconf _NPROCESSORS_ONLN 2>/dev/null || getconf NPROCESSORS_ONLN)" # linux & freebsd compat I think
+_tempdir # set temp dir
+
+while getopts :hd3peib:v:k:r:j: OPT; do
+	case "$OPT" in
+		h) usage && exit 0 ;;
+		d) DELETE=1 ;;
+		3) TYPE=mp3 ;;
+		p) RMPIC=1 ;;
+		i) IGNOREWARNINGS=1 ;;
+		b) BITRATE="$OPTARG" ;;
+		v) VLVL="$OPTARG" ;;
+		k) KEEPKEYS="$OPTARG" ;;
+		r) REMOVEKEYS="$OPTARG" ;;
+		j) THREADS="$OPTARG" ;;
+		*) fail "unknown option: -$OPTARG. run $BN -h to see all options" ;;
+	esac
+done
+shift "$((OPTIND - 1))"
+
+command -v metaflac 1>/dev/null 2>&1 || fail 'flac tools are not installed! (metaflac)'
+[ $TYPE = "mp3" ] && { command -v lame 1>/dev/null 2>&1 || fail 'lame is not installed!' ; }
+[ $TYPE = "opus" ] && { command -v opusenc 1>/dev/null 2>&1 || fail 'opus-tools is not installed! (opusenc)' ; }
+command -v id3v2 1>/dev/null 2>&1 || { warn 'id3v2 not installed! invalid id3 tags in a flac file will not be removed' && NO_ID3=1 ; }
+
+{ [ "$KEEPKEYS" ] && [ "$REMOVEKEYS" ]; } && fail 'don'\''t use -k and -r in the same call!'
+
+# this script assumes you aren't using newlines in path names
+# I do not want to change it to account for this
+# you should never put newlines in paths
+# it is a very bad idea for many programs
+FLACFILES="$(find "$@" -type f -name "*.flac")"
+[ -z "$FLACFILES" ] && fail 'no flac files found!'
+
+# make a fifo/fd for parallel stuff
+mk_parallel_fd() {
+	fifo_para="$(mktemp -u "$TMPDIR/flacconvXXXX")"
+	mkfifo "$fifo_para"
+	exec 9<>"$fifo_para"
+	rm -f "$fifo_para"
+	while [ "$THREADS" -gt 0 ]; do
+		printf "\n" >&9 # start with THREADS amount of lines in fd 9 for later
+		THREADS="$((THREADS - 1))"
+	done
+}
+
+# read each line from fd 9, launch new program for each line
+# print a line after program finished such that another one can take its place
+run_in_parallel() {
+	cmd="$1"
+	shift
+	read -r __ <&9
+	{
+		"$cmd" "$@"
+		printf '\n' >&9
+	} &
+}
+
+test_2() {
+	echo "$*"
+	sleep 5
+}
+
+mk_parallel_fd
+while read -r file; do
+	run_in_parallel process_file "$file" 
+done <<-EOF
+	$FLACFILES
+EOF
+
+wait
