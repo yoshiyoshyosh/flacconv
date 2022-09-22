@@ -1,5 +1,5 @@
 # flacconv
-flacconv is a 99.9% POSIX[^1] shell script that recursively converts directories of flac files to opus/mp3.
+flacconv is a 100% POSIX[^1] shell script that recursively converts directories of flac files to opus/mp3.
 
 when invoked with no arguments, it recursively converts the current directory's flac files to opus with a bitrate of 128k, retaining all metadata and not deleting the original flac files
 
@@ -40,4 +40,21 @@ if encoding to mp3, the only metadata that will be kept is the following:
               if omitted, CPU core count will be used"
 ```
 
-[^1]: `/dev/stdin` is not POSIX yet is used in this script, but it's supported basically everywhere
+## examples
+recursively convert a directory of flacs to opus 128k, removing the picture for every one
+
+`flacconv -p /path/to/dir`
+
+recursively convert the current directory to mp3 320k
+
+`flacconv -b 320 -3`
+
+recursively convert current directory to opus 160k, while removing any COMMENT or DESCRIPTION tags
+
+`flacconv -b 160 -r 'COMMENT|DESCRIPTION`
+
+recursively convert current directory to mp3 v0, removing all pictures, and keeping only TITLE, ARTIST, ALBUM, TRACKNUMBER
+
+`flacconv -v 0 -p -k "TITLE|ARTIST|ALBUM|TRACKNUMBER"`
+
+[^1]: tested on dash
