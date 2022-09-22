@@ -98,11 +98,11 @@ process_file() {
 			metaflac --export-picture-to="$pic" "$infile"
 		fi
 		[ "$VLVL" ] || cbr="-b${TAB}$BITRATE${TAB}--cbr"
-		flac --decode --stdout "$infile" 2>/dev/null | lame -q 0 ${cbr:--V${TAB}${VLVL}} --add-id3v2 --tt "$title" --ta "$artist" --tl "$album" --ty "$year" --tn "$tracknumber" --tg "$genre" --tc "$comment" --tv "TPE2=$albumartist" ${pic:+--ti${TAB}"${pic}"} - "${infile%.*}.mp3" 1>/dev/null 2>&1
+		flac --decode --stdout "$infile" | lame -q 0 ${cbr:--V${TAB}${VLVL}} --add-id3v2 --tt "$title" --ta "$artist" --tl "$album" --ty "$year" --tn "$tracknumber" --tg "$genre" --tc "$comment" --tv "TPE2=$albumartist" ${pic:+--ti${TAB}"${pic}"} - "${infile%.*}.mp3"
 		ret="$?"
 		[ "${pic:-}" ] && rm -f "$pic"
 	fi
-	{ [ "$ret" -eq 0 ] && echo "$infile successfully converted to $TYPE with bitrate/quality ${VLVL:-${BITRATE}k}" ; } || { echo "an error occured while encoding $infile, not deleting" && DELETE= ; }
+	{ [ "$ret" -eq 0 ] && echo "$infile successfully converted to $TYPE with bitrate/quality ${VLVL:-${BITRATE}k}" ; } || { errecho "an error occured while encoding $infile, not deleting" && DELETE= ; }
 
 	[ "$DELETE" -eq 1 ] && rm -f "$infile" || true
 }
