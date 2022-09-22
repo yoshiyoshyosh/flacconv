@@ -1,2 +1,43 @@
 # flacconv
-a shell script to convert flac files to opus/mp3, with many options
+flacconv is a 99.9% POSIX[^1] shell script that recursively converts directories of flac files to opus/mp3.
+
+when invoked with no arguments, it recursively converts the current directory's flac files to opus with a bitrate of 128k, retaining all metadata and not deleting the original flac files
+
+it also has options for you to change the bitrate, use a variable quality for mp3, keep/remove metadata, and parallel processing
+
+## dependencies
+- `flac`
+- `lame` (required for mp3, not required otherwise)
+- `opus-tools` (required for opus, not required otherwise)
+- `id3v2` (optional, for removing invalid ID3 tags in a flac file before converting)
+
+## usage
+```
+flacconv [-hdp3] [-b BITRATE] [-v LEVEL] [-k KEYS] [-r KEYS] [-j THREADS] [--] [DIRECTORY...]
+DIRECTORY can be specified multiple times. if omitted, the current directory is used
+if encoding to mp3, the only metadata that will be kept is the following:
+  TITLE, ARTIST, ALBUM, ALBUMARTIST, DATE, GENRE, TRACKNUMBER, COMMENT, and the cover picture
+  
+ -h           show script help
+ -i           ignore script-stopping warnings
+ -d           delete original flac files after transcoding
+ -3           switch output filetype to mp3
+ -b <BITRATE> output bitrate in kbits (default 128)
+              this value is variable for opus & CBR for mp3
+ -v <LEVEL>   mp3 only: use specified mp3 variable quality (0-9). integer only
+              OVERRIDES -b
+ -k <KEYS>    keep specified flac metadata KEYS in output file
+              keys can be checked with metaflac --export-tags-to=- FILE
+              option argument is a PIPE-separated list of UPPERCASE keys to keep
+              (i.e. -m 'ARTIST|TITLE|ALBUMARTIST|ALBUM|DATE')
+              if both -k and -r are not present, all keys are kept.
+ -r <KEYS>    remove specified flac metadata KEYS in output file
+              cannot be used with -k
+              option argument is of the same format as -k
+              if set to 'ALL', all keys are removed
+ -p           remove embedded picture in output files
+ -j <THREADS> use the specified amount of threads for parallel processing
+              if omitted, CPU core count will be used"
+```
+
+[^1]: `/dev/stdin` is not POSIX yet is used in this script, but it's supported basically everywhere
