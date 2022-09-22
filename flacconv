@@ -1,6 +1,6 @@
 #!/bin/sh
 
-# flacconv 1.0.0 // use https://github.com/yoshiyoshyosh/flacconv for issues
+# flacconv 1.0.1 // use https://github.com/yoshiyoshyosh/flacconv for issues
 
 set -euf
 TAB="$(printf '\t')"
@@ -22,7 +22,7 @@ warn() {
 	if [ -z "$IGNOREWARNINGS" ]; then
 		errecho 'you can ignore stopping for warnings in the future with -i'
 		errecho 'press enter to continue, or C-v to quit'
-		read -r _warning
+		read -r __
 	fi
 }
 
@@ -39,6 +39,8 @@ _tempdir() {
 }
 
 metaflac() { command metaflac --no-utf8-convert "$@"; } # don't wanna fuck up any tags from locale shit
+
+convwarn() { errecho "an error occured while encoding $infile, not deleting" && err=1 && DELETE= ; }
 
 # some code reused from https://gist.github.com/berturion/5377d6653ef93049f4ff54cff2003e11#file-flac2opus-sh
 process_file() {
@@ -67,6 +69,12 @@ process_file() {
 		tags="$(printf '%s' "$tags" | grep -v -E "^$REMOVEKEYS")"
 	fi
 
+	# export pic if we're keeping it
+	if [ -z "$RMPIC" ]; then
+		pic="$TMPDIR/${bname%.*}_IMG"
+		metaflac --export-picture-to="$pic" "$infile"
+	fi
+
 	# time to encode
 	IFS="$TAB$NL"
 	if [ "$TYPE" = "opus" ]; then
@@ -77,12 +85,7 @@ process_file() {
 		done <<-EOF
 			$tags
 		EOF
-		if [ "$RMPIC" ]; then
-			opusenc --discard-comments $opustags --bitrate "${BITRATE}k" "$infile" "${infile%.*}.opus"
-		else
-			metaflac --export-picture-to=- "$infile" | opusenc --discard-comments $opustags --bitrate "${BITRATE}k" --picture /dev/stdin "$infile" "${infile%.*}.opus"
-		fi
-		ret="$?"
+		opusenc --discard-comments $opustags ${pic:+--picture${TAB}"${pic}"} --bitrate "${BITRATE}k" "$infile" "${infile%.*}.opus" || convwarn
 	else
 		album="$(printf "%s" "$tags" | sed -n 's/^ALBUM=//p')"
 		artist="$(printf "%s" "$tags" | sed -n 's/^ARTIST=//p')"
@@ -93,18 +96,12 @@ process_file() {
 		tracknumber="$(printf "%s" "$tags" | sed -n 's/^TRACKNUMBER=//p')"
 		comment="$(printf "%s" "$tags" | sed -n 's/^COMMENT=//p')"
 
-		if [ -z "$RMPIC" ]; then
-			pic="$TMPDIR/${bname%.*}_IMG"
-			metaflac --export-picture-to="$pic" "$infile"
-		fi
 		[ "$VLVL" ] || cbr="-b${TAB}$BITRATE${TAB}--cbr"
-		flac --decode --stdout "$infile" | lame -q 0 ${cbr:--V${TAB}${VLVL}} --add-id3v2 --tt "$title" --ta "$artist" --tl "$album" --ty "$year" --tn "$tracknumber" --tg "$genre" --tc "$comment" --tv "TPE2=$albumartist" ${pic:+--ti${TAB}"${pic}"} - "${infile%.*}.mp3"
-		ret="$?"
-		[ "${pic:-}" ] && rm -f "$pic"
+		flac --decode --stdout "$infile" | lame -q 0 ${cbr:--V${TAB}"${VLVL}"} --add-id3v2 --tt "$title" --ta "$artist" --tl "$album" --ty "$year" --tn "$tracknumber" --tg "$genre" --tc "$comment" --tv "TPE2=$albumartist" ${pic:+--ti${TAB}"${pic}"} - "${infile%.*}.mp3" || convwarn
 	fi
-	{ [ "$ret" -eq 0 ] && echo "$infile successfully converted to $TYPE with bitrate/quality ${VLVL:-${BITRATE}k}" ; } || { errecho "an error occured while encoding $infile, not deleting" && DELETE= ; }
-
-	[ "$DELETE" -eq 1 ] && rm -f "$infile" || true
+	[ "${pic:-}" ] && rm -f "$pic"
+	[ -z "${err:-}" ] && echo "$infile successfully converted to $TYPE with bitrate/quality ${VLVL:-${BITRATE}k}"
+	[ -z "$DELETE" ] && rm -f "$infile" || true
 }
 
 usage() {
@@ -138,7 +135,6 @@ if encoding to mp3, the only metadata that will be kept is the following:
               if omitted, CPU core count will be used"
 }
 
-set +u
 DELETE=0
 TYPE=opus
 BITRATE=128
