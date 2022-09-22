@@ -1,4 +1,7 @@
 #!/bin/sh
+
+# flacconv 1.0.0 // use https://github.com/yoshiyoshyosh/flacconv for issues
+
 set -euf
 TAB="$(printf '\t')"
 NL='
