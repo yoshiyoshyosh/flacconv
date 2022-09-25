@@ -31,8 +31,8 @@ if encoding to mp3, the only metadata that will be kept is the following:
               OVERRIDES -b
  -k <KEYS>    keep specified flac metadata KEYS in output file
               keys can be checked with metaflac --export-tags-to=- FILE
-              option argument is a PIPE-separated list of UPPERCASE keys to keep
-              (i.e. -m 'ARTIST|TITLE|ALBUMARTIST|ALBUM|DATE')
+              option argument is a PIPE-separated list of keys to keep, case-insensitive
+              (e.g. -k 'artist|title|albumartist|album|date')
               if both -k and -r are not present, all keys are kept.
  -r <KEYS>    remove specified flac metadata KEYS in output file
               cannot be used with -k
