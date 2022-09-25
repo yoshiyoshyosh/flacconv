@@ -116,9 +116,6 @@ process_file() {
 	[ "${pic:-}" ] && rm -f "$pic"
 	[ -z "${err:-}" ] && echo "$infile successfully converted to $TYPE with bitrate/quality ${VLVL:-${BITRATE}k}"
 	[ -z "$DELETE" ] || rm -f "$infile"
-
-	#note: my version only
-	[ "$TYPE" = "opus" ] && opustags -d ENCODER -d ENCODER_OPTIONS -i "${infile%.*}.opus"
 }
 
 usage() {
