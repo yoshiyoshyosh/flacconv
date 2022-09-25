@@ -6,19 +6,22 @@ when invoked with no arguments, it recursively converts the current directory's 
 it also has options for you to change the bitrate, use a variable quality for mp3, keep/remove metadata, and parallel processing
 
 ## dependencies
+- Some implementation of a shell and [POSIX Utilities](https://pubs.opengroup.org/onlinepubs/9699919799/idx/utilities.html) (usually, this is GNU coreutils, which you probably have)
 - `flac`
 - `lame` (required for mp3, not required otherwise)
 - `opus-tools` (required for opus, not required otherwise)
 - `id3v2` (optional, for removing invalid ID3 tags in a flac file before converting)
+- `curl` (optional, for checking for updates)
 
 ## usage
 ```
-flacconv [-hdp3] [-b BITRATE] [-v LEVEL] [-k KEYS] [-r KEYS] [-j THREADS] [--] [DIRECTORY...]
+flacconv [-hudp3] [-b BITRATE] [-v LEVEL] [-k KEYS] [-r KEYS] [-j THREADS] [--] [DIRECTORY...]
 DIRECTORY can be specified multiple times. if omitted, the current directory is used
 if encoding to mp3, the only metadata that will be kept is the following:
   TITLE, ARTIST, ALBUM, ALBUMARTIST, DATE, GENRE, TRACKNUMBER, COMMENT, and the cover picture
   
  -h           show script help
+ -u           check for updates
  -i           ignore script-stopping warnings
  -d           delete original flac files after transcoding
  -3           switch output filetype to mp3
@@ -37,7 +40,7 @@ if encoding to mp3, the only metadata that will be kept is the following:
               if set to 'ALL', all keys are removed
  -p           remove embedded picture in output files
  -j <THREADS> use the specified amount of threads for parallel processing
-              if omitted, CPU core count will be used"
+              if omitted, CPU core count will be used
 ```
 
 ## examples
@@ -57,4 +60,4 @@ recursively convert current directory to mp3 v0, removing all pictures, and keep
 
 `flacconv -3 -v 0 -p -k "TITLE|ARTIST|ALBUM|TRACKNUMBER"`
 
-[^1]: tested on dash
+[^1]: tested on dash and yash
