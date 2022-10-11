@@ -15,32 +15,34 @@ it also has options for you to change the bitrate, use a variable quality for mp
 
 ## usage
 ```
-flacconv [-hudp3] [-b BITRATE] [-v LEVEL] [-k KEYS] [-r KEYS] [-j THREADS] [--] [DIRECTORY...]
+"usage: flacconv [-huvVip3] [-b BITRATE] [-l LEVEL] [-k KEYS] [-r KEYS] [-j THREADS] [--] [DIRECTORY...]
 DIRECTORY can be specified multiple times. if omitted, the current directory is used
-if encoding to mp3, the only metadata that will be kept is the following:
+IF ENCODING TO MP3, -k AND -r WILL NOT WORK. the only metadata that will be kept is the following:
   TITLE, ARTIST, ALBUM, ALBUMARTIST, DATE, GENRE, TRACKNUMBER, COMMENT, and the cover picture
-  
+(blame id3. just use opus)
+
  -h           show script help
  -u           check for updates
+ -v           verbose output (messy with multithreading)
+ -V           very verbose output (VERY messy, use only for debugging and with like, -j 1)
  -i           ignore script-stopping warnings
  -d           delete original flac files after transcoding
  -3           switch output filetype to mp3
  -b <BITRATE> output bitrate in kbits (default 128)
               this value is variable for opus & CBR for mp3
- -v <LEVEL>   mp3 only: use specified mp3 variable quality (0-9). integer only
+ -l <LEVEL>   mp3 only: use specified mp3 variable quality (0-9). integer only
               OVERRIDES -b
  -k <KEYS>    keep specified flac metadata KEYS in output file
               keys can be checked with metaflac --export-tags-to=- FILE
               option argument is a PIPE-separated list of keys to keep, case-insensitive
-              (e.g. -k 'artist|title|albumartist|album|date')
+              (i.e. -k 'artist|title|albumartist|album|date')
               if both -k and -r are not present, all keys are kept.
  -r <KEYS>    remove specified flac metadata KEYS in output file
-              cannot be used with -k
               option argument is of the same format as -k
               if set to 'ALL', all keys are removed
  -p           remove embedded picture in output files
  -j <THREADS> use the specified amount of threads for parallel processing
-              if omitted, CPU core count will be used
+              if omitted, CPU core count will be used"
 ```
 
 ## examples
@@ -60,4 +62,4 @@ recursively convert current directory to mp3 v0, removing all pictures, and keep
 
 `flacconv -3 -v 0 -p -k "TITLE|ARTIST|ALBUM|TRACKNUMBER"`
 
-[^1]: tested on dash and yash
+[^1]: tested with dash, yash, and bash --posix on linux. further testing encouraged
