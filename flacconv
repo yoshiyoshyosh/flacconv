@@ -1,6 +1,6 @@
 #!/bin/sh
 
-# flacconv 1.2.0 // use https://github.com/yoshiyoshyosh/flacconv for issues
+# flacconv 1.2.1 // use https://github.com/yoshiyoshyosh/flacconv for issues
 
 set -euf
 TAB="$(printf '\t')"
@@ -96,7 +96,7 @@ process_file() {
 	# first detect any potential ID3 tags
 	head_bytes="$(dd if="$infile" of=/dev/stdout bs=1 count=3 2>/dev/null)"
 	if [ "$head_bytes" = "ID3" ]; then
-		errecho "invalid id3 tags found in $infile, you should get that fixed!"
+		warn "invalid id3 tags found in $infile, you should get that fixed!"
 		# in a previous version this would remove invalid id3 tags automatically
 		# I have since realized that this is outside the scope of this program
 		# additionally, some people may have tags only in the id3 values, and as
