@@ -1,6 +1,6 @@
 #!/bin/sh
 
-# flacconv 1.2.1 // use https://github.com/yoshiyoshyosh/flacconv for issues
+# flacconv 1.2.2 // use https://github.com/yoshiyoshyosh/flacconv for issues
 
 set -euf
 TAB="$(printf '\t')"
@@ -126,7 +126,8 @@ process_file() {
 		opustags=""
 		# build opus comment chain, can't "import" tags like with flac
 		[ "$tagnames" ] && while read -r name; do
-			opustags="${opustags:+${opustags}${VTAB}}--comment${VTAB}$(metaflac --show-tag="$name" "$infile")"
+			tmptag="$(metaflac --show-tag="$name" "$infile")"
+			[ "$tmptag" ] && opustags="${opustags:+${opustags}${VTAB}}--comment${VTAB}${tmptag}"
 		done <<-EOF
 			$tagnames
 		EOF
