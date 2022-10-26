@@ -10,7 +10,6 @@ it also has options for you to change the bitrate, use a variable quality for mp
 - `flac`
 - `lame` (required for mp3, not required otherwise)
 - `opus-tools` (required for opus, not required otherwise)
-- `id3v2` (optional, for removing invalid ID3 tags in a flac file before converting)
 - `curl` (optional, for checking for updates)
 
 ## usage
