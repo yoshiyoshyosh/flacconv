@@ -263,11 +263,6 @@ run_in_parallel() {
 	} &
 }
 
-test_2() {
-	echo "$*"
-	sleep 5
-}
-
 mk_parallel_fd
 while read -r file; do
 	run_in_parallel process_file "$file" 
