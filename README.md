@@ -57,8 +57,8 @@ recursively convert current directory to opus 160k, while removing any COMMENT o
 
 `flacconv -b 160 -r "COMMENT|DESCRIPTION"`
 
-recursively convert current directory to mp3 v0, removing all pictures, and keeping only TITLE, ARTIST, ALBUM, TRACKNUMBER
+recursively convert current directory to mp3 v0, removing all pictures
 
-`flacconv -3 -v 0 -p -k "TITLE|ARTIST|ALBUM|TRACKNUMBER"`
+`flacconv -3 -v 0 -p`
 
 [^1]: tested with dash, bash, and yash (set -o posixly-correct) on linux. further testing encouraged
