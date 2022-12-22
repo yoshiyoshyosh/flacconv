@@ -1,29 +1,36 @@
 #!/bin/sh
 
-# flacconv 1.2.2 // use https://github.com/yoshiyoshyosh/flacconv for issues
+# flacconv 1.3.0 // use https://github.com/yoshiyoshyosh/flacconv for issues
 
 set -euf
-TAB="$(printf '\t')"
-VTAB="$(printf '\v')" # need a really obscure control character for IFS shenanigans
-NL='
-'
 BN="${0##*/}"
 POSIXLY_CORRECT=1
+GREEN="$(tput setf 2)"
+RED="$(tput setf 4)"
+YELLOW="$(tput setf 6)"
+RESET="$(tput sgr0)"
+
+if [ -z "${NO_COLOR:-}" ]; then
+	GREEN=
+	RED=
+	YELLOW=
+	RESET=
+fi
 
 errecho() {
-	>&2 echo "$@"
+	>&2 echo "$@""$RESET"
 }
 
 fail() {
-	errecho "error: $BN: $*"
+	errecho "${RED}error: $BN: $*"
 	exit 1
 }
 
 warn() {
-	errecho "warning: $BN: $*"
+	errecho "${YELLOW}warning: $BN: $*"
 	if [ -z "$IGNOREWARNINGS" ]; then
 		errecho 'you can ignore stopping for warnings in the future with -i'
-		errecho 'press enter to continue, or C-v to quit'
+		errecho 'press enter to continue, or C-c to quit'
 		read -r __
 	fi
 }
@@ -54,12 +61,12 @@ checkupdate() {
 
 metaflac() { command metaflac --no-utf8-convert "$@"; } # don't wanna fuck up any tags from locale shit
 
-convwarn() { errecho "an error occured while encoding $infile, skipping and not deleting" && err=1 && DELETE= ; }
+convwarn() { errecho "${RED}an error occured while encoding ${RESET}$infile${RED}, skipping and not deleting" && err=1 && DELETE= ; }
 
 _opusenc() {
 	opusenc --discard-comments \
-		$opustags \
-		${pic:+--picture${VTAB}"${pic}"} \
+		"$@" \
+		${pic:+--picture "${pic}"} \
 		--bitrate "${BITRATE}k" \
 		"$infile" \
 		"${infile%.*}.opus"
@@ -68,7 +75,7 @@ _opusenc() {
 _mp3enc() {
 	flac --decode --stdout "$infile" | lame \
 		-q 0 \
-		${cbr:--V${VTAB}"${VLVL}"} \
+		${cbr:--V "${VLVL}"} \
 		--add-id3v2 \
 		--tt "${title#*=}" \
 		--ta "${artist#*=}" \
@@ -78,7 +85,7 @@ _mp3enc() {
 		--tg "${genre#*=}" \
 		--tc "${comment#*=}" \
 		--tv "TPE2=${albumartist#*=}" \
-		${pic:+--ti${VTAB}"${pic}"} \
+		${pic:+--ti "${pic}"} \
 		- \
 		"${infile%.*}.mp3"
 }
@@ -87,8 +94,12 @@ _mp3enc() {
 process_file() {
 	infile="$1"
 	bname="${infile##*/}"
+
+	# clear pos params 4 use later
+	set --
+
 	# tagnames will be used for all non-metaflac operations, as it allows for multiline comment shit
-	tagnames="$(metaflac --export-tags-to=- "$infile" | grep -F '=' | cut -d '=' -f 1)"
+	tagnames="$(metaflac --export-tags-to=- "$infile" | grep -F '=' | cut -d '=' -f 1 | uniq)"
 
 	# check if flac has a picture, if not, set RMPIC
 	metaflac --export-picture-to=- "$infile" 1>/dev/null 2>&1 || RMPIC=1
@@ -120,21 +131,28 @@ process_file() {
 	fi
 
 	# time to encode
-	IFS="$VTAB"
 	if [ "$TYPE" = "opus" ]; then
 		VLVL=
 		opustags=""
 		# build opus comment chain, can't "import" tags like with flac
 		[ "$tagnames" ] && while read -r name; do
 			tmptag="$(metaflac --show-tag="$name" "$infile")"
-			[ "$tmptag" ] && opustags="${opustags:+${opustags}${VTAB}}--comment${VTAB}${tmptag}"
+			if [ "$tmptag" ]; then
+				tagcount="$(printf '%s' "$tmptag"| grep -c "^$name=")" # multi-value tags funsies
+				i=2
+				while [ $i -le $((tagcount + 1)) ]; do
+					# this awk is kinda cursed, I like it
+					set -- "$@" "--comment" "$(printf '%s' "$tmptag" | awk -v RS="" -v FS="^$name=|\n$name=" '{print "'"$name="'" $'"$i"' }')"
+					i=$((i + 1))
+				done
+			fi
 		done <<-EOF
 			$tagnames
 		EOF
 		if [ "$VERBOSE" ]; then
-			_opusenc || convwarn
+			_opusenc "$@" || convwarn
 		else
-			_opusenc 1>/dev/null 2>&1 || convwarn
+			_opusenc "$@" 1>/dev/null 2>&1 || convwarn
 		fi
 	else
 		album="$(metaflac --show-tag=album "$infile")"
@@ -146,7 +164,7 @@ process_file() {
 		tracknumber="$(metaflac --show-tag=tracknumber "$infile")"
 		comment="$(metaflac --show-tag=comment "$infile")"
 
-		[ "$VLVL" ] || cbr="-b${VTAB}$BITRATE${VTAB}--cbr"
+		[ "$VLVL" ] || cbr="-b $BITRATE --cbr"
 		if [ "$VERBOSE" ]; then
 			_mp3enc || convwarn
 		else
@@ -154,7 +172,7 @@ process_file() {
 		fi
 	fi
 	[ "${pic:-}" ] && rm -f "$pic"
-	[ -z "${err:-}" ] && echo "$infile successfully converted to $TYPE with bitrate/quality ${VLVL:-${BITRATE}k}"
+	[ -z "${err:-}" ] && errecho "$infile ${GREEN}successfully converted to ${RESET}$TYPE${GREEN} with bitrate/quality ${RESET}${VLVL:-${BITRATE}k}"
 	[ -z "$DELETE" ] || rm -f "$infile"
 }
 
