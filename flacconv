@@ -1,6 +1,6 @@
 #!/bin/sh
 
-# flacconv 1.3.1 // use https://github.com/yoshiyoshyosh/flacconv for issues
+# flacconv 1.3.2 // use https://github.com/yoshiyoshyosh/flacconv for issues
 
 set -euf
 BN="${0##*/}"
@@ -95,9 +95,6 @@ process_file() {
 	infile="$1"
 	bname="${infile##*/}"
 
-	# clear pos params 4 use later
-	set --
-
 	# tagnames will be used for all non-metaflac operations, as it allows for multiline comment shit
 	tagnames="$(metaflac --export-tags-to=- "$infile" | grep -F '=' | cut -d '=' -f 1 | uniq)"
 
@@ -135,14 +132,15 @@ process_file() {
 		VLVL=
 		opustags=""
 		# build opus comment chain, can't "import" tags like with flac
+		set --
 		[ "$tagnames" ] && while read -r name; do
 			tmptag="$(metaflac --show-tag="$name" "$infile")"
-			if [ "$tmptag" ]; then
+			if [ "${tmptag#*=}" ]; then
 				tagcount="$(printf '%s' "$tmptag"| grep -c "^$name=")" # multi-value tags funsies
 				i=2
 				while [ $i -le $((tagcount + 1)) ]; do
 					# this awk is kinda cursed, I like it
-					set -- "$@" "--comment" "$(printf '%s' "$tmptag" | awk -v RS="" -v FS="^$name=|\n$name=" '{print "'"$name="'" $'"$i"' }')"
+					set -- "$@" "--comment" "$(printf '%s' "$tmptag" | awk -v RS="^$name=|\n$name=" "FNR==$i{print \"$name=\" \$0 }")"
 					i=$((i + 1))
 				done
 			fi
