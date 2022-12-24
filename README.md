@@ -14,7 +14,7 @@ it also has options for you to change the bitrate, use a variable quality for mp
 
 ## usage
 ```
-"usage: flacconv [-huvVip3] [-b BITRATE] [-l LEVEL] [-k KEYS] [-r KEYS] [-j THREADS] [--] [DIRECTORY...]
+usage: flacconv [-huvVip3] [-b BITRATE] [-l LEVEL] [-k KEYS] [-r KEYS] [-j THREADS] [--] [DIRECTORY...]
 DIRECTORY can be specified multiple times. if omitted, the current directory is used
 IF ENCODING TO MP3, -k AND -r WILL NOT WORK. the only metadata that will be kept is the following:
   TITLE, ARTIST, ALBUM, ALBUMARTIST, DATE, GENRE, TRACKNUMBER, COMMENT, and the cover picture
@@ -41,7 +41,7 @@ IF ENCODING TO MP3, -k AND -r WILL NOT WORK. the only metadata that will be kept
               if set to 'ALL', all keys are removed
  -p           remove embedded picture in output files
  -j <THREADS> use the specified amount of threads for parallel processing
-              if omitted, CPU core count will be used"
+              if omitted, CPU core count will be used
 ```
 
 ## examples
